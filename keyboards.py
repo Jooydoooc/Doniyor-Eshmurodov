@@ -1,16 +1,15 @@
 """
 Keyboard module.
-Builds inline keyboards (buttons) used throughout the bot.
+All keyboards now use dynamic groups fetched from the database.
 """
 
 from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from database import LEVELS, GROUPS, SECTIONS
+from database import LEVELS, SECTIONS, get_groups
 
 
 def levels_keyboard() -> InlineKeyboardMarkup:
-    """Top-level menu: choose a level."""
     builder = InlineKeyboardBuilder()
     for level in LEVELS:
         builder.button(text=level, callback_data=f"level|{level}")
@@ -19,17 +18,20 @@ def levels_keyboard() -> InlineKeyboardMarkup:
 
 
 def groups_keyboard(level: str) -> InlineKeyboardMarkup:
-    """Second menu: choose a group inside a level."""
+    """Groups are loaded dynamically from the database."""
     builder = InlineKeyboardBuilder()
-    for group in GROUPS:
-        builder.button(text=group, callback_data=f"group|{level}|{group}")
+    groups = get_groups(level)
+    if groups:
+        for group in groups:
+            builder.button(text=group, callback_data=f"group|{level}|{group}")
+    else:
+        builder.button(text="⚠️ No groups yet", callback_data="noop")
     builder.button(text="⬅️ Back to Levels", callback_data="back|levels")
     builder.adjust(1)
     return builder.as_markup()
 
 
 def sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
-    """Third menu: choose a section inside a group."""
     builder = InlineKeyboardBuilder()
     icons = {
         "Tasks": "📝",
@@ -51,7 +53,6 @@ def sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
 
 
 def back_to_sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
-    """Single 'back' button shown after content is delivered."""
     builder = InlineKeyboardBuilder()
     builder.button(
         text="⬅️ Back to Sections",
@@ -64,7 +65,6 @@ def back_to_sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
 # ---------- ADMIN KEYBOARDS ----------
 
 def admin_levels_keyboard(action: str) -> InlineKeyboardMarkup:
-    """Admin picks a level when adding content."""
     builder = InlineKeyboardBuilder()
     for level in LEVELS:
         builder.button(text=level, callback_data=f"adm|{action}|lvl|{level}")
@@ -74,20 +74,23 @@ def admin_levels_keyboard(action: str) -> InlineKeyboardMarkup:
 
 
 def admin_groups_keyboard(action: str, level: str) -> InlineKeyboardMarkup:
-    """Admin picks a group when adding content."""
+    """Show existing groups for admin actions (delete, rename, add content)."""
     builder = InlineKeyboardBuilder()
-    for group in GROUPS:
-        builder.button(
-            text=group,
-            callback_data=f"adm|{action}|grp|{level}|{group}",
-        )
+    groups = get_groups(level)
+    if groups:
+        for group in groups:
+            builder.button(
+                text=group,
+                callback_data=f"adm|{action}|grp|{level}|{group}",
+            )
+    else:
+        builder.button(text="⚠️ No groups for this level", callback_data="noop")
     builder.button(text="❌ Cancel", callback_data="adm|cancel")
     builder.adjust(1)
     return builder.as_markup()
 
 
 def admin_sections_keyboard(action: str, level: str, group: str) -> InlineKeyboardMarkup:
-    """Admin picks a section for show/delete flows."""
     builder = InlineKeyboardBuilder()
     for section in SECTIONS:
         builder.button(
@@ -99,10 +102,9 @@ def admin_sections_keyboard(action: str, level: str, group: str) -> InlineKeyboa
     return builder.as_markup()
 
 
-# ---------- REPLY KEYBOARD (permanent bottom menu) ----------
+# ---------- REPLY KEYBOARD ----------
 
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
-    """Permanent bottom keyboard shown to all students."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
