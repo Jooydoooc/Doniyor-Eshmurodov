@@ -108,3 +108,77 @@ def admin_sections_keyboard(action: str, level: str, group: str) -> InlineKeyboa
     builder.button(text="❌ Cancel", callback_data="adm|cancel")
     builder.adjust(1)
     return builder.as_markup()
+builder.button(text="⬅️ Back to Levels", callback_data="back|levels")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
+    """Third menu: choose a section inside a group."""
+    builder = InlineKeyboardBuilder()
+    icons = {
+        "Tasks": "📝",
+        "Homework": "🏠",
+        "Materials": "📚",
+        "Books": "📖",
+        "Recorded Lessons": "🎥",
+        "Lesson Files": "📂",
+    }
+    for section in SECTIONS:
+        icon = icons.get(section, "•")
+        builder.button(
+            text=f"{icon} {section}",
+            callback_data=f"section|{level}|{group}|{section}",
+        )
+    builder.button(text="⬅️ Back to Groups", callback_data=f"back|groups|{level}")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def back_to_sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
+    """Single 'back' button shown after content is delivered."""
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="⬅️ Back to Sections",
+        callback_data=f"back|sections|{level}|{group}",
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+# ---------- ADMIN KEYBOARDS ----------
+
+def admin_levels_keyboard(action: str) -> InlineKeyboardMarkup:
+    """Admin picks a level when adding content. action is 'add' or 'delete'."""
+    builder = InlineKeyboardBuilder()
+    for level in LEVELS:
+        builder.button(text=level, callback_data=f"adm|{action}|lvl|{level}")
+    builder.button(text="❌ Cancel", callback_data="adm|cancel")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def admin_groups_keyboard(action: str, level: str) -> InlineKeyboardMarkup:
+    """Admin picks a group when adding content."""
+    builder = InlineKeyboardBuilder()
+    for group in GROUPS:
+        builder.button(
+            text=group,
+            callback_data=f"adm|{action}|grp|{level}|{group}",
+        )
+    builder.button(text="❌ Cancel", callback_data="adm|cancel")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def admin_sections_keyboard(action: str, level: str, group: str) -> InlineKeyboardMarkup:
+    """Admin picks a section when deleting content (for show/delete flows)."""
+    builder = InlineKeyboardBuilder()
+    for section in SECTIONS:
+        builder.button(
+            text=section,
+            callback_data=f"adm|{action}|sec|{level}|{group}|{section}",
+        )
+    builder.button(text="❌ Cancel", callback_data="adm|cancel")
+    builder.adjust(1)
+    return builder.as_markup()
