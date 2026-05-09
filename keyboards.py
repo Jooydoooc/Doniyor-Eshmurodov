@@ -108,3 +108,21 @@ def admin_sections_keyboard(action: str, level: str, group: str) -> InlineKeyboa
     builder.button(text="❌ Cancel", callback_data="adm|cancel")
     builder.adjust(1)
     return builder.as_markup()
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+def main_menu_keyboard() -> ReplyKeyboardMarkup:
+    """Permanent bottom keyboard shown to all students."""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="📚 My Level"),
+                KeyboardButton(text="ℹ️ Help"),
+            ],
+            [
+                KeyboardButton(text="📣 Announcements"),
+            ],
+        ],
+        resize_keyboard=True,      # makes buttons smaller and neater
+        persistent=True,           # stays visible, never hides
+        input_field_placeholder="Choose an option...",
+    )
