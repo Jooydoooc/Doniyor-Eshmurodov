@@ -23,12 +23,21 @@ from database import (
 def main_reply_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📋 Menu"), KeyboardButton(text="ℹ️ Help")],
-            [KeyboardButton(text="📣 Announcements")],
+            [
+                KeyboardButton(text="⚡ Groups"),
+                KeyboardButton(text="🔮 Universal"),
+            ],
+            [
+                KeyboardButton(text="🎯 Mock Tests"),
+                KeyboardButton(text="🚀 Channel"),
+            ],
+            [
+                KeyboardButton(text="💬 Announcements"),
+            ],
         ],
         resize_keyboard=True,
         persistent=True,
-        input_field_placeholder="Tap Menu to start...",
+        input_field_placeholder="Choose a category...",
     )
 
 
