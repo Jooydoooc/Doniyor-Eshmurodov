@@ -122,3 +122,36 @@ async def back_to_sections(callback: CallbackQuery) -> None:
         reply_markup=sections_keyboard(level, group),
     )
     await callback.answer()
+    @router.message(F.text == "📚 My Level")
+async def btn_my_level(message: Message) -> None:
+    """Student tapped 'My Level' button."""
+    await message.answer(
+        "📚 Choose your <b>level</b>:",
+        reply_markup=levels_keyboard(),
+    )
+
+@router.message(F.text == "ℹ️ Help")
+async def btn_help(message: Message) -> None:
+    """Student tapped 'Help' button."""
+    await message.answer(
+        "<b>📘 How to use this bot</b>\n\n"
+        "1. Tap <b>📚 My Level</b> to open the menu.\n"
+        "2. Choose your level, then your group.\n"
+        "3. Pick a section to view content.\n\n"
+        "Tap <b>📣 Announcements</b> to see the latest news."
+    )
+
+@router.message(F.text == "📣 Announcements")
+async def btn_announcements(message: Message) -> None:
+    """Show the latest announcement."""
+    from database import get_connection
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT text, created_at FROM announcements ORDER BY created_at DESC LIMIT 1")
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        await message.answer("📭 No announcements yet.")
+    else:
+        await message.answer(f"📣 <b>Latest Announcement</b>\n\n{row['text']}")
