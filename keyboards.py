@@ -1,12 +1,11 @@
 """
-Keyboard module.
-All keyboards now use dynamic groups fetched from the database.
+Keyboard module — fully dynamic groups and sections from database.
 """
 
 from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from database import LEVELS, SECTIONS, get_groups
+from database import LEVELS, get_groups, get_sections, get_section_icon
 
 
 def levels_keyboard() -> InlineKeyboardMarkup:
@@ -18,7 +17,6 @@ def levels_keyboard() -> InlineKeyboardMarkup:
 
 
 def groups_keyboard(level: str) -> InlineKeyboardMarkup:
-    """Groups are loaded dynamically from the database."""
     builder = InlineKeyboardBuilder()
     groups = get_groups(level)
     if groups:
@@ -33,20 +31,16 @@ def groups_keyboard(level: str) -> InlineKeyboardMarkup:
 
 def sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    icons = {
-        "Tasks": "📝",
-        "Homework": "🏠",
-        "Materials": "📚",
-        "Books": "📖",
-        "Recorded Lessons": "🎥",
-        "Lesson Files": "📂",
-    }
-    for section in SECTIONS:
-        icon = icons.get(section, "•")
-        builder.button(
-            text=f"{icon} {section}",
-            callback_data=f"section|{level}|{group}|{section}",
-        )
+    sections = get_sections(level)
+    if sections:
+        for section in sections:
+            icon = get_section_icon(section)
+            builder.button(
+                text=f"{icon} {section}",
+                callback_data=f"section|{level}|{group}|{section}",
+            )
+    else:
+        builder.button(text="⚠️ No sections yet", callback_data="noop")
     builder.button(text="⬅️ Back to Groups", callback_data=f"back|groups|{level}")
     builder.adjust(1)
     return builder.as_markup()
@@ -62,7 +56,7 @@ def back_to_sections_keyboard(level: str, group: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-# ---------- ADMIN KEYBOARDS ----------
+# ── ADMIN KEYBOARDS ──
 
 def admin_levels_keyboard(action: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -74,7 +68,6 @@ def admin_levels_keyboard(action: str) -> InlineKeyboardMarkup:
 
 
 def admin_groups_keyboard(action: str, level: str) -> InlineKeyboardMarkup:
-    """Show existing groups for admin actions (delete, rename, add content)."""
     builder = InlineKeyboardBuilder()
     groups = get_groups(level)
     if groups:
@@ -90,19 +83,43 @@ def admin_groups_keyboard(action: str, level: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def admin_sections_keyboard(action: str, level: str, group: str) -> InlineKeyboardMarkup:
+def admin_sections_keyboard(action: str, level: str, group: str = "") -> InlineKeyboardMarkup:
+    """Used in show/delete content flows — shows sections for a level."""
     builder = InlineKeyboardBuilder()
-    for section in SECTIONS:
-        builder.button(
-            text=section,
-            callback_data=f"adm|{action}|sec|{level}|{group}|{section}",
-        )
+    sections = get_sections(level)
+    if sections:
+        for section in sections:
+            cb = (
+                f"adm|{action}|sec|{level}|{group}|{section}"
+                if group
+                else f"adm|{action}|sec|{level}||{section}"
+            )
+            builder.button(text=section, callback_data=cb)
+    else:
+        builder.button(text="⚠️ No sections for this level", callback_data="noop")
     builder.button(text="❌ Cancel", callback_data="adm|cancel")
     builder.adjust(1)
     return builder.as_markup()
 
 
-# ---------- REPLY KEYBOARD ----------
+def admin_sections_manage_keyboard(action: str, level: str) -> InlineKeyboardMarkup:
+    """Used in add/delete/rename section flows — shows existing sections."""
+    builder = InlineKeyboardBuilder()
+    sections = get_sections(level)
+    if sections:
+        for section in sections:
+            builder.button(
+                text=section,
+                callback_data=f"adm|{action}|msec|{level}|{section}",
+            )
+    else:
+        builder.button(text="⚠️ No sections yet", callback_data="noop")
+    builder.button(text="❌ Cancel", callback_data="adm|cancel")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+# ── REPLY KEYBOARD ──
 
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
