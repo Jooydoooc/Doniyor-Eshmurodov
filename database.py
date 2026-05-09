@@ -3,10 +3,10 @@ Database module.
 Handles all SQLite operations for the bot.
 
 Tables:
-- content: stores all teaching materials (homework, tasks, books, etc.)
-
-Each content row has:
-  id, level, group_name, section, content_type, text, file_id, file_type, created_at
+- groups:  dynamic groups per level (replaces hardcoded GROUPS list)
+- content: all teaching materials
+- announcements: broadcast messages
+- users: student registry for broadcasting
 """
 
 import sqlite3
@@ -15,23 +15,41 @@ from typing import Optional
 
 DB_PATH = "student_bot.db"
 
-# These are the fixed levels and groups in your learning center
+# Levels stay fixed (change here if needed)
 LEVELS = ["Beginner", "Elementary", "Pre-IELTS", "IELTS Introduction", "IELTS Graduation"]
-GROUPS = ["Hunters", "Hackers", "Assassins"]
+
+# Sections stay fixed
 SECTIONS = ["Tasks", "Homework", "Materials", "Books", "Recorded Lessons", "Lesson Files"]
+
+# Default groups loaded into DB on first run
+DEFAULT_GROUPS = ["Hunters", "Hackers", "Assassins"]
 
 
 def get_connection() -> sqlite3.Connection:
-    """Open a new connection to the database."""
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # access columns by name
+    conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db() -> None:
-    """Create tables if they don't exist."""
+    """Create all tables and seed default groups."""
     conn = get_connection()
     cur = conn.cursor()
+
+    # Groups table — dynamic, editable by admin
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            level TEXT NOT NULL,
+            group_name TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(level, group_name)
+        )
+        """
+    )
+
+    # Content table
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS content (
@@ -47,7 +65,8 @@ def init_db() -> None:
         )
         """
     )
-    # Announcements table (broadcast to everyone, no level/group)
+
+    # Announcements table
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS announcements (
@@ -57,7 +76,8 @@ def init_db() -> None:
         )
         """
     )
-    # Track student users so admin can broadcast announcements
+
+    # Users table
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -68,8 +88,107 @@ def init_db() -> None:
         )
         """
     )
+
+    conn.commit()
+
+    # Seed default groups for every level if table is empty
+    cur.execute("SELECT COUNT(*) as cnt FROM groups")
+    row = cur.fetchone()
+    if row["cnt"] == 0:
+        for level in LEVELS:
+            for group in DEFAULT_GROUPS:
+                cur.execute(
+                    "INSERT OR IGNORE INTO groups (level, group_name, created_at) VALUES (?, ?, ?)",
+                    (level, group, datetime.utcnow().isoformat()),
+                )
+        conn.commit()
+
+    conn.close()
+
+
+# ---------- GROUPS ----------
+
+def get_groups(level: str) -> list:
+    """Return all group names for a level, alphabetically."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT group_name FROM groups WHERE level = ? ORDER BY group_name",
+        (level,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return [row["group_name"] for row in rows]
+
+
+def get_all_groups() -> list:
+    """Return all (level, group_name) pairs."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT level, group_name FROM groups ORDER BY level, group_name")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def add_group(level: str, group_name: str) -> bool:
+    """Add a new group to a level. Returns True if added, False if already exists."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO groups (level, group_name, created_at) VALUES (?, ?, ?)",
+            (level, group_name.strip(), datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def delete_group(level: str, group_name: str) -> bool:
+    """Delete a group and ALL its content. Returns True if deleted."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "DELETE FROM groups WHERE level = ? AND group_name = ?",
+        (level, group_name),
+    )
+    deleted = cur.rowcount > 0
+    if deleted:
+        # Also remove all content belonging to this group
+        cur.execute(
+            "DELETE FROM content WHERE level = ? AND group_name = ?",
+            (level, group_name),
+        )
     conn.commit()
     conn.close()
+    return deleted
+
+
+def rename_group(level: str, old_name: str, new_name: str) -> bool:
+    """Rename a group and update all its content rows. Returns True if successful."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE groups SET group_name = ? WHERE level = ? AND group_name = ?",
+            (new_name.strip(), level, old_name),
+        )
+        if cur.rowcount == 0:
+            return False
+        cur.execute(
+            "UPDATE content SET group_name = ? WHERE level = ? AND group_name = ?",
+            (new_name.strip(), level, old_name),
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
 
 
 # ---------- CONTENT ----------
@@ -83,7 +202,6 @@ def add_content(
     file_type: Optional[str] = None,
     caption: Optional[str] = None,
 ) -> int:
-    """Insert a new content item. Returns its row id."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -99,8 +217,7 @@ def add_content(
     return new_id
 
 
-def get_content(level: str, group_name: str, section: str) -> list[sqlite3.Row]:
-    """Fetch all content for a given level/group/section, newest first."""
+def get_content(level: str, group_name: str, section: str) -> list:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -116,8 +233,7 @@ def get_content(level: str, group_name: str, section: str) -> list[sqlite3.Row]:
     return rows
 
 
-def get_content_by_id(content_id: int) -> Optional[sqlite3.Row]:
-    """Fetch one content item by its id."""
+def get_content_by_id(content_id: int):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM content WHERE id = ?", (content_id,))
@@ -127,7 +243,6 @@ def get_content_by_id(content_id: int) -> Optional[sqlite3.Row]:
 
 
 def delete_content(content_id: int) -> bool:
-    """Delete a content item by id. Returns True if a row was deleted."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM content WHERE id = ?", (content_id,))
@@ -140,7 +255,6 @@ def delete_content(content_id: int) -> bool:
 # ---------- ANNOUNCEMENTS ----------
 
 def add_announcement(text: str) -> int:
-    """Save an announcement to the database."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -156,7 +270,6 @@ def add_announcement(text: str) -> int:
 # ---------- USERS ----------
 
 def upsert_user(user_id: int, username: Optional[str], first_name: Optional[str]) -> None:
-    """Insert or update a user record (used for broadcasting announcements)."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -174,8 +287,7 @@ def upsert_user(user_id: int, username: Optional[str], first_name: Optional[str]
     conn.close()
 
 
-def get_all_user_ids() -> list[int]:
-    """Return every user_id we've ever seen."""
+def get_all_user_ids() -> list:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT user_id FROM users")
