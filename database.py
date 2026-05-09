@@ -22,7 +22,7 @@ LEVELS = ["Beginner", "Elementary", "Pre-IELTS", "IELTS Introduction", "IELTS Gr
 SECTIONS = ["Tasks", "Homework", "Materials", "Books", "Recorded Lessons", "Lesson Files"]
 
 # Default groups loaded into DB on first run
-DEFAULT_GROUPS = ["Hunters", "Hackers", "Assassins"]
+DEFAULT_GROUPS = ["Hunters", "Hackers", "Assassins", "Slytherin"]
 
 
 def get_connection() -> sqlite3.Connection:
