@@ -26,23 +26,22 @@ def is_admin(user_id: int) -> bool:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
+    """Welcome message + level menu."""
     user = message.from_user
     if user:
         upsert_user(user.id, user.username, user.first_name)
-
+ 
     name = user.first_name if user and user.first_name else "student"
-
-    # Send the permanent bottom keyboard first
-    await message.answer(
-        f"👋 Welcome, <b>{name}</b>! Use the buttons below to navigate.",
-        reply_markup=main_menu_keyboard(),   # ← this sets the permanent buttons
+    admin_note = ""
+    if user and is_admin(user.id):
+        admin_note = "\n\n👑 You are logged in as <b>admin</b>. Use /help to see admin commands."
+ 
+    text = (
+        f"👋 Hello, <b>{name}</b>!\n\n"
+        "Welcome to the <b>IELTS Enigma Student Portal</b>.\n\n"
+        "Please choose your <b>level</b> below:" + admin_note
     )
-
-    # Then show the level selection as before
-    await message.answer(
-        "📚 Choose your <b>level</b>:",
-        reply_markup=levels_keyboard(),
-    )
+    await message.answer(text, reply_markup=levels_keyboard())
 
 
 @router.message(Command("help"))
@@ -140,18 +139,3 @@ async def btn_help(message: Message) -> None:
         "3. Pick a section to view content.\n\n"
         "Tap <b>📣 Announcements</b> to see the latest news."
     )
-
-@router.message(F.text == "📣 Announcements")
-async def btn_announcements(message: Message) -> None:
-    """Show the latest announcement."""
-    from database import get_connection
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT text, created_at FROM announcements ORDER BY created_at DESC LIMIT 1")
-    row = cur.fetchone()
-    conn.close()
-
-    if not row:
-        await message.answer("📭 No announcements yet.")
-    else:
-        await message.answer(f"📣 <b>Latest Announcement</b>\n\n{row['text']}")
