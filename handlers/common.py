@@ -26,22 +26,23 @@ def is_admin(user_id: int) -> bool:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
-    """Welcome message + level menu."""
     user = message.from_user
     if user:
         upsert_user(user.id, user.username, user.first_name)
 
     name = user.first_name if user and user.first_name else "student"
-    admin_note = ""
-    if user and is_admin(user.id):
-        admin_note = "\n\n👑 You are logged in as <b>admin</b>. Use /help to see admin commands."
 
-    text = (
-        f"👋 Hello, <b>{name}</b>!\n\n"
-        "Welcome to the <b>IELTS Enigma Student Portal</b>.\n\n"
-        "Please choose your <b>level</b> below:" + admin_note
+    # Send the permanent bottom keyboard first
+    await message.answer(
+        f"👋 Welcome, <b>{name}</b>! Use the buttons below to navigate.",
+        reply_markup=main_menu_keyboard(),   # ← this sets the permanent buttons
     )
-    await message.answer(text, reply_markup=levels_keyboard())
+
+    # Then show the level selection as before
+    await message.answer(
+        "📚 Choose your <b>level</b>:",
+        reply_markup=levels_keyboard(),
+    )
 
 
 @router.message(Command("help"))
